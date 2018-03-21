@@ -34,7 +34,6 @@ def create_okta_application(app_name,
         sso_metadata: Identity Provider Metadata - which should be used when
             creating an IAM Identity Provider.
     """
-    logger.info("Creating {} Application in Okta",format(app_name))
     okta_api_url = 'https://{}/api/v1'.format(okta_fqdn)
     # headers used when making JSON requests
     json_headers = {'Authorization': 'SSWS {}'.format(okta_token),
@@ -140,12 +139,16 @@ def create_iam_role(role_name, iam_client, aws_account_id, iam_idp_name,
         AssumeRolePolicyDocument=json.dumps(role_policy_doc))
     logger.debug(create_role_response)
     role_arn = create_role_response['Role']['Arn']
+    logger.info("Role {} has been created with ARN {}".format(role_name,
+                                                              role_arn))
     for policy_arn in role_policy_arns:
         attach_role_policy_response = iam_client.attach_role_policy(
             RoleName=role_name,
             PolicyArn=policy_arn
         )
         logger.debug(attach_role_policy_response)
+        logger.info("Policy {} has been attached to {}".format(policy_arn,
+                                                               role_arn))
 
     return role_arn
 
@@ -185,6 +188,9 @@ def okta_aws_provision(app_name,
     create_saml_provider_response = iam_client.create_saml_provider(
         SAMLMetadataDocument=okta_sso_metadata, Name=iam_idp_name)
     logger.debug(create_saml_provider_response)
+    logger.info(
+        "IDP {} for Okta has been created in AWS.".format(iam_idp_name)
+    )
     role_arn = create_iam_role(iam_rolename,
                                iam_client,
                                aws_account_id,
@@ -209,7 +215,6 @@ if __name__ == '__main__':
                         help='Okta API Token. Can also be set via the '
                              'OKTA_TOKEN environment variable')
     parser.add_argument('--TrustedAwsAccounts',
-                        default='321867275817',
                         help='Comma separated list of AWS Account Ids that'
                              'should also be trusted to assume the created '
                              'role.')
@@ -248,16 +253,24 @@ if __name__ == '__main__':
             "via --OktaToken arg."
         )
 
+    role_policy_arns = None
     if args.RolePolicyArns is None:
         if 'admin' in args.AppName:
             role_policy_arns = ['arn:aws:iam::aws:policy/AdministratorAccess']
         elif 'poweruser' in args.AppName:
-            role_policy_arns = ['arn:aws:iam::aws:policy/PowerUserAccess',
-                                'arn:aws:iam::aws:policy/IAMReadOnlyAccess']
+            role_policy_arns = ['arn:aws:iam::aws:policy/PowerUserAccess']
         elif 'readonly' in args.AppName:
             role_policy_arns = ['arn:aws:iam::aws:policy/ReadOnlyAccess']
     else:
         role_policy_arns = args.RolePolicyArns.split(',')
+
+    if role_policy_arns is None:
+        raise RuntimeError(
+            "Unable to determine the policies that should be attached to "
+            "the role. Either use a name where the policy can be derived "
+            "or provide a comma sperated list via the --RolePolicyArns "
+            "arg."
+        )
 
     if args.TrustedAwsAccounts:
         trusted_aws_accounts = args.TrustedAwsAccounts.split(',')
