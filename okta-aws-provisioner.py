@@ -231,7 +231,7 @@ if __name__ == '__main__':
     parser.add_argument('--LogLevel',
                         choices=['debug', 'info', 'warn', 'error'],
                         default='warn',
-                        help="Log level sent to the console.")
+                        help="Log level sent to the console. Defaults to warn")
     args = parser.parse_args()
 
     logging_levels = {
