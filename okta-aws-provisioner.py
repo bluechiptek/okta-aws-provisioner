@@ -129,6 +129,9 @@ def create_iam_role(role_name, iam_client, aws_account_id, iam_idp_name,
               "Action": "sts:AssumeRole"
             }
             trust_statements.append(trust_account_statement)
+            logger.info(
+                "Added trust for AWS account id {}". format(account_id)
+            )
 
     role_policy_doc = {
       "Version": "2012-10-17",
